@@ -19,7 +19,12 @@
   ];
 
   function votedGuilty(senator) {
-    if (senator.terms[0].party != "Republican") return true;
+    if (
+      senator.terms.sort(function (one, two) {
+        return -one.end.localeCompare(two.end);
+      })[0].party != "Republican"
+    )
+      return true;
     return repubNos.indexOf(senator.name.official_full) != -1;
   }
 
@@ -47,7 +52,9 @@
       })[0];
     return {
       name: senator.name,
-      party: senator.terms[0].party,
+      party: senator.terms.sort(function (one, two) {
+        return -one.end.localeCompare(two.end);
+      })[0].party,
       vote,
       state,
       electionData: {
@@ -64,7 +71,7 @@
     tableOps: {
       sortColumn: {
         name: "Name",
-        dir: null,
+        dir: true,
       },
       columns: {
         Name: {
@@ -81,10 +88,22 @@
           getValue(senator) {
             return senator.party;
           },
+          filterOptions(fullData) {
+            return [...new Set(fullData.map((senator) => senator.party))];
+          },
+          filter: {
+            value: null,
+          },
         },
         Vote: {
           getValue(senator) {
             return senator.vote;
+          },
+          filterOptions(fullData) {
+            return [...new Set(fullData.map((senator) => senator.vote))];
+          },
+          filter: {
+            value: null,
           },
         },
         "State Pop.": {
@@ -122,19 +141,52 @@
   <table>
     <thead>
       <tr>
+        <th />
         {#each Object.keys(fullWrapper.tableOps.columns) as col}
-          <th on:click={() => (fullWrapper.tableOps.sortColumn.name = col)}>
+          <th>
             {col}
+            <span
+              on:click={() => {
+                if (fullWrapper.tableOps.sortColumn.name == col) {
+                  fullWrapper.tableOps.sortColumn.dir = !fullWrapper.tableOps
+                    .sortColumn.dir;
+                } else {
+                  fullWrapper.tableOps.sortColumn.name = col;
+                  fullWrapper.tableOps.sortColumn.dir = false;
+                }
+              }}>V</span
+            >
+            {#if fullWrapper.tableOps.columns[col].filterOptions}
+              <select
+                bind:value={fullWrapper.tableOps.columns[col].filter.value}
+              >
+                <option>filter...</option>
+                {#each fullWrapper.tableOps.columns[col].filterOptions(fullData) as option}
+                  <option value={option}>{option}</option>
+                {/each}
+              </select>
+            {/if}
           </th>
         {/each}
       </tr>
     </thead>
     <tbody>
-      {#each fullData.sort(function (one, two) {
-        let col = fullWrapper.tableOps.columns[fullWrapper.tableOps.sortColumn.name];
-        return col.getValue(one).localeCompare(col.getValue(two));
-      }) as senator}
+      {#each fullData
+        .filter((senator) => {
+          var filters = Object.keys(fullWrapper.tableOps.columns)
+            .map((col) => fullWrapper.tableOps.columns[col])
+            .filter((col) => col.filter?.value);
+          if (filters.length == 0) return true;
+          return filters.filter((col) => col.filter.value == col.getValue(senator)).length == filters.length;
+        })
+        .sort(function (one, two) {
+          let col = fullWrapper.tableOps.columns[fullWrapper.tableOps.sortColumn.name];
+          return (fullWrapper.tableOps.sortColumn.dir ? 1 : -1) * col
+              .getValue(one)
+              .localeCompare(col.getValue(two));
+        }) as senator, ix}
         <tr>
+          <td>{ix + 1}</td>
           {#each Object.keys(fullWrapper.tableOps.columns) as col}
             <td>
               {fullWrapper.tableOps.columns[col].getValue(senator)}
