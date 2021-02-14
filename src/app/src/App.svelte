@@ -110,6 +110,13 @@
           getValue(senator) {
             return senator.state.population;
           },
+          sum(filteredData) {
+            return (
+              filteredData.reduce((result, next) => {
+                return parseInt(next.state.population) + result;
+              }, 0) / 2
+            );
+          },
         },
         "% Vote Received": {
           getValue(senator) {
@@ -123,13 +130,16 @@
               100
             ).toFixed(1);
           },
-        },
-      },
-    },
-    agregates: {
-      "Population in Support": {
-        sum() {
-          return this.fullData.reduce((result, next) => 6, 0);
+          sum(filteredData) {
+            return filteredData
+              .reduce((result, next) => {
+                return (
+                  result +
+                  (next.electionData.percent() * next.state.population) / 100
+                );
+              }, 0)
+              .toFixed(1);
+          },
         },
       },
     },
@@ -194,6 +204,28 @@
           {/each}
         </tr>
       {/each}
+      <tr>
+        <td>Aggregates</td>
+        {#each Object.keys(fullWrapper.tableOps.columns) as col}
+          <td>
+            {#if fullWrapper.tableOps.columns[col].sum}
+              {fullWrapper.tableOps.columns[col].sum(
+                fullData.filter((senator) => {
+                  var filters = Object.keys(fullWrapper.tableOps.columns)
+                    .map((col) => fullWrapper.tableOps.columns[col])
+                    .filter((col) => col.filter?.value);
+                  if (filters.length == 0) return true;
+                  return (
+                    filters.filter(
+                      (col) => col.filter.value == col.getValue(senator)
+                    ).length == filters.length
+                  );
+                })
+              )}
+            {/if}
+          </td>
+        {/each}
+      </tr>
     </tbody>
   </table>
 </main>
